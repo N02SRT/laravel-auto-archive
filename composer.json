@@ -1,0 +1,24 @@
+{
+  "name": "n02srt/laravel-auto-archive",
+  "description": "Auto-archive Eloquent models by moving old records into a dedicated archive database.",
+  "type": "library",
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "N02srt\\AutoArchive\\": "src/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "N02srt\\AutoArchive\\AutoArchiveServiceProvider"
+      ]
+    }
+  },
+  "require": {
+    "php": "^8.0",
+    "illuminate/support": "^8.0|^9.0|^10.0",
+    "illuminate/database": "^8.0|^9.0|^10.0",
+    "doctrine/dbal": "^3.0"
+  }
+}

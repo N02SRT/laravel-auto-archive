@@ -22,18 +22,30 @@ php artisan auto-archive:setup App\Models\Invoice --days=90
 
 ## ✨ Features
 
+
 ### 🧠 Archive Methods
 
-Choose between two strategies:
-- `move`: Move records to a separate archive table/database
-- `flag`: Add a timestamp to the `archived_at` column and keep the record in place
+This package supports three archiving strategies. You can define the method globally in `config/auto-archive.php`:
 
 ```php
-'method' => 'move' // or 'flag'
+'method' => 'move' // options: 'move', 'flag', 'mirror'
 ```
 
----
+#### 🔁 move (default)
+- Moves records to the archive database
+- Deletes them from the primary database
+- Honors `hard_delete` if set to true for physical deletion
 
+#### 🏷️ flag
+- Sets an `archived_at` timestamp in the original table
+- Keeps the data in place
+- Useful for soft-style archiving without migrations
+
+#### 🪞 mirror (NEW)
+- Copies matching records to the archive database
+- Leaves the original data untouched
+- Ideal for analytics, backups, or compliance snapshots
+--- 
 ### 📆 Per-Model Retention
 
 Override archive timing for specific models using:
@@ -222,4 +234,5 @@ Please make sure you:
 
 > **I am not responsible for any data loss, misconfiguration, or unintended consequences from using this package. Use at your own risk.**
 
----
+
+

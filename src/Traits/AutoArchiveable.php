@@ -6,8 +6,8 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Crypt;
 use N02srt\AutoArchive\Events\ModelArchived;
+use N02srt\AutoArchive\Models\ArchiveLog;
 
 trait AutoArchiveable
 {
@@ -66,7 +66,6 @@ trait AutoArchiveable
             return 0;
         }
 
-
         $batch = config('auto-archive.batch_size');
         $pause = config('auto-archive.pause_seconds');
         $conn  = config('auto-archive.archive_connection');
@@ -85,41 +84,39 @@ trait AutoArchiveable
                 foreach ($models as $model) {
                     $attributes = $model->getAttributes();
 
-                    if (config('auto-archive.logging.enabled')) {
-                        \N02srt\AutoArchive\Models\ArchiveLog::create([
-                            'model' => get_class($model),
-                            'record_id' => $model->getKey(),
-                            'archived_at' => now(),
-                        ]);
-                    }
-
-                    // Selective columns
                     if (property_exists($model, 'archiveColumns') && is_array($model->archiveColumns)) {
                         $attributes = array_intersect_key($attributes, array_flip($model->archiveColumns));
-                    }
-
-                    // Encrypt specific columns
-                    if (property_exists($model, 'archiveEncryptedColumns') && is_array($model->archiveEncryptedColumns)) {
-                        foreach ($model->archiveEncryptedColumns as $column) {
-                            if (isset($attributes[$column]) && is_string($attributes[$column])) {
-                                $attributes[$column] = Crypt::encryptString($attributes[$column]);
-                            }
-                        }
                     }
 
                     DB::connection($conn)
                         ->table($model->getArchiveTable())
                         ->insert($attributes);
 
-                    if (config('auto-archive.hard_delete')) {
-                        DB::table($model->getTable())->where('id', $model->getKey())->delete();
-                    } else {
-                        $model->delete(); // Use soft deletes or model events if applicable
+                    if (config('auto-archive.method') === 'flag') {
+                        $model->update([$model->getArchivedAtColumn() => now()]);
+                    } elseif (config('auto-archive.method') === 'move') {
+                        if (config('auto-archive.hard_delete')) {
+                            DB::table($model->getTable())->where('id', $model->getKey())->delete();
+                        } else {
+                            $model->delete();
+                        }
+                    } elseif (config('auto-archive.method') === 'mirror') {
+                        // Do nothing after copy
                     }
+
+                    if (config('auto-archive.logging.enabled')) {
+                        ArchiveLog::create([
+                            'model' => get_class($model),
+                            'record_id' => $model->getKey(),
+                            'archived_at' => now(),
+                        ]);
+                    }
+
                     Event::dispatch(new ModelArchived($model));
                     $count++;
                 }
             });
+
             sleep($pause);
         });
 

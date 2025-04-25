@@ -17,6 +17,7 @@ return [
     |--------------------------------------------------------------------------
     | 'move'  - physically moves records to archive tables
     | 'flag'  - sets `archived_at` timestamp and keeps in primary table
+    | 'mirror'- creates a full copy in archive tables
     */
     'method' => 'move',
 

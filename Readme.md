@@ -1,33 +1,21 @@
 # Laravel Auto Archive
 
-**`n02srt/laravel-auto-archive`** is a full-featured Laravel package for intelligently archiving Eloquent models based on retention policies. It supports encryption, restoration, soft delete bypassing, queue processing, and everything you'd want in a large-scale Laravel app that handles sensitive or aging data.
+**`n02srt/laravel-auto-archive`** is a drop-in Laravel package that automates archiving of old Eloquent model data. It supports encrypted columns, separate archive databases, soft delete logic, queueing, dry-runs, and event notifications — all with easy setup and clean defaults.
 
 ---
 
 ## ✨ Features with Examples
 
-- ✅ Flag (`archived_at`) or fully move records to an archive table  
-  _Example: Use `method => 'flag'` in config to keep records in place with a timestamp._
-- 📆 Per-model retention periods with override support  
-  _Example: `protected static $archiveAfterDays = 120;` in your model._
-- 🧼 Selective column archiving (`$archiveColumns`)  
-  _Example: `protected $archiveColumns = ['id', 'email', 'created_at'];`_
-- 🔐 Column-level encryption on archive  
-  _Example: `protected $archiveEncryptedColumns = ['email', 'ssn'];`_
-- 🧪 Dry-run mode for both archive and restore  
-  _Example: `php artisan archive:models --dry-run`_
-- 💥 Supports soft delete bypassing (`deleted_at`)  
-  _Example: Set `bypass_soft_deletes => true` in config._
-- 🔁 Archive via Laravel Queues  
-  _Example: `php artisan archive:models --queue`_
-- 📋 Archive logs table for auditing  
-  _Example: Archive actions logged in `archive_logs` table._
-- 📣 Notification hooks  
-  _Example: Events fire `ModelArchived` and `ModelRestored` you can listen to._
-- 🔒 Read-only safety mode  
-  _Example: Set `AUTO_ARCHIVE_READONLY=true` to block changes in prod._
-- ⏳ Auto-cleanup of expired archive records  
-  _Example: `php artisan archive:cleanup` purges based on `max_archive_age`_
+- ✅ **Archive Methods** – `flag` (adds `archived_at`) or `move` to archive DB
+- 📆 **Per-Model Retention** – Override with `$archiveAfterDays`
+- 🔐 **Encrypted Columns** – Secure fields like SSNs or emails
+- 🧼 **Selective Columns** – Archive only what you need
+- 🔁 **Queue Support** – Use `--queue` to defer heavy jobs
+- 🧪 **Dry-Run Support** – Test archive/restore without writing
+- 📋 **Audit Logging** – Log each archived record (optional)
+- 🛡 **Read-Only Mode** – Prevent mutations in prod
+- ⏳ **Cleanup Command** – Delete archive records after X days
+- 📣 **Notification Hooks** – Slack, email, or webhook triggers
 
 ---
 
@@ -37,57 +25,13 @@
 composer require n02srt/laravel-auto-archive
 ```
 
-Enable PHP Zip if necessary:
-
-```ini
-extension=zip
-```
-
----
-
-## ⚙️ Configuration
-
-### 1. Publish Config
+Then run:
 
 ```bash
-php artisan vendor:publish --provider="N02srt\AutoArchive\AutoArchiveServiceProvider" --tag=config
+php artisan auto-archive:setup App\Models\Invoice --days=90
 ```
 
-### 2. Define Archive DB in `.env`
-
-```env
-DB_ARCHIVE_CONNECTION=archive
-DB_ARCHIVE_DATABASE=archive
-DB_ARCHIVE_USERNAME=archive_user
-DB_ARCHIVE_PASSWORD=secret
-```
-
-### 3. Define Archive DB in `config/database.php`
-
-```php
-'archive' => [
-    'driver' => 'mysql',
-    'host' => env('DB_ARCHIVE_HOST', '127.0.0.1'),
-    'database' => env('DB_ARCHIVE_DATABASE'),
-    'username' => env('DB_ARCHIVE_USERNAME'),
-    'password' => env('DB_ARCHIVE_PASSWORD'),
-    'charset' => 'utf8mb4',
-    'collation' => 'utf8mb4_unicode_ci',
-    'prefix' => '',
-],
-```
-
----
-
-## 📦 Quick Setup
-
-Automatically wires up everything:
-
-```bash
-php artisan auto-archive:setup App\Models\User --days=90
-```
-
-Creates the archive migration, updates your model, and runs migrations.
+✔️ This publishes config, injects the trait, registers your model, builds migrations, and runs them.
 
 ---
 
@@ -96,92 +40,115 @@ Creates the archive migration, updates your model, and runs migrations.
 ```php
 use N02srt\AutoArchive\Traits\AutoArchiveable;
 
-class User extends Model
+class Invoice extends Model
 {
     use AutoArchiveable;
 
     protected static $archiveAfterDays = 90;
 
-    protected $archiveColumns = ['id', 'email', 'created_at'];
-    protected $archiveEncryptedColumns = ['email'];
+    protected $archiveColumns = ['id', 'amount', 'customer_id'];
+    protected $archiveEncryptedColumns = ['amount'];
 
     public function scopeArchiveScope($query)
     {
-        return $query->where('is_active', false);
+        return $query->where('status', 'paid');
     }
 }
 ```
 
 ---
 
-## 🧪 Artisan Command Examples
+## ⚙️ Config Options
+
+> Published to: `config/auto-archive.php`
+
+```php
+'default_retention_days' => 30,                  // fallback if not set on model
+'method'                => 'move',              // or 'flag'
+'archive_connection'    => 'archive',           // DB connection for archive tables
+'batch_size'            => 1000,                // rows per batch
+'pause_seconds'         => 1,                   // delay between chunks
+'max_archive_age'       => 365,                 // purge old archive rows
+'bypass_soft_deletes'   => false,               // include soft-deleted records?
+'readonly'              => false,               // prevent writes
+'logging'               => ['enabled' => true], // log archive actions
+'encryption' => [
+    'enabled' => true,
+    'key'     => env('AUTO_ARCHIVE_ENCRYPTION_KEY'),
+],
+'notifications' => [
+    'slack' => env('AUTO_ARCHIVE_SLACK_WEBHOOK'),
+    'email' => env('AUTO_ARCHIVE_NOTIFY_EMAIL'),
+    'webhook' => env('AUTO_ARCHIVE_WEBHOOK_URL'),
+],
+'models' => [
+    // App\Models\Invoice::class,
+],
+```
+
+---
+
+## 🧪 Artisan Commands
 
 ```bash
-# Archive immediately
+# Archive now
 php artisan archive:models
 
-# Preview what will be archived
+# Dry run (no writes)
 php artisan archive:models --dry-run
 
-# Push archive to queue
+# Queue archive jobs
 php artisan archive:models --queue
 
-# Restore a single record
-php artisan restore:archived App\Models\User 42
+# Restore specific record
+php artisan restore:archived App\Models\Invoice 42
 
-# Preview restore of all records
-php artisan restore:archived App\Models\User --dry-run
+# Preview restore
+php artisan restore:archived App\Models\Invoice --dry-run
 
-# Cleanup expired archive records
+# Delete expired archive rows
 php artisan archive:cleanup
 ```
 
 ---
 
+## 📋 Archive Log (Optional)
+
+If enabled (`logging.enabled`):
+
+| model              | record_id | archived_at         |
+|-------------------|-----------|----------------------|
+| App\Models\User   | 52        | 2025-04-24 20:02:00  |
+
+Define model in `src/Models/ArchiveLog.php` or use the one provided.
+
+---
+
 ## 📣 Notifications
 
-```php
-// Listen to archive events in your app or package
-Event::listen(ModelArchived::class, function ($event) {
-    Log::info("Archived: {$event->model->getTable()} #{$event->model->id}");
-});
-```
-
-Or enable Slack/email/webhook notifications by setting `.env`:
+Enable Slack/email/webhook alerts when archiving/restoring:
 
 ```env
 AUTO_ARCHIVE_NOTIFY_EMAIL=admin@example.com
 AUTO_ARCHIVE_SLACK_WEBHOOK=https://hooks.slack.com/services/...
-AUTO_ARCHIVE_WEBHOOK_URL=https://yourdomain.com/webhook
+AUTO_ARCHIVE_WEBHOOK_URL=https://yourapp.com/webhook
 ```
+
+Events:
+- `ModelArchived`
+- `ModelRestored`
 
 ---
 
-## 🛡 Security Features
+## 🛡 Safety Features
 
-| Setting                     | Purpose                                 |
-|-----------------------------|-----------------------------------------|
-| `readonly`                  | Prevents any changes (archive/restore) |
-| `bypass_soft_deletes`       | Includes soft-deleted models in query  |
-| `encryption`                | Enables Laravel encryption on fields   |
-
----
-
-## 📋 Example Archive Log Entry
-
-If enabled:
-
-```php
-ArchiveLog::create([
-    'model' => App\Models\User::class,
-    'record_id' => 42,
-    'archived_at' => now(),
-]);
-```
+- **Read-only mode:** Set `AUTO_ARCHIVE_READONLY=true`
+- **Encryption:** Add fields to `$archiveEncryptedColumns`
+- **Soft delete bypass:** Toggle in config
 
 ---
 
 ## 📄 License
 
 MIT © Steve Ash  
-Made for large-scale Laravel projects that value data retention, performance, and peace of mind.
+This package exists so your tables can breathe. 🫁

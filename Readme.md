@@ -4,21 +4,6 @@
 
 ---
 
-## ✨ Features with Examples
-
-- ✅ **Archive Methods** – `flag` (adds `archived_at`) or `move` to archive DB
-- 📆 **Per-Model Retention** – Override with `$archiveAfterDays`
-- 🔐 **Encrypted Columns** – Secure fields like SSNs or emails
-- 🧼 **Selective Columns** – Archive only what you need
-- 🔁 **Queue Support** – Use `--queue` to defer heavy jobs
-- 🧪 **Dry-Run Support** – Test archive/restore without writing
-- 📋 **Audit Logging** – Log each archived record (optional)
-- 🛡 **Read-Only Mode** – Prevent mutations in prod
-- ⏳ **Cleanup Command** – Delete archive records after X days
-- 📣 **Notification Hooks** – Slack, email, or webhook triggers
-
----
-
 ## 🚀 Installation
 
 ```bash
@@ -35,7 +20,167 @@ php artisan auto-archive:setup App\Models\Invoice --days=90
 
 ---
 
-## 🧬 Example Model Setup
+## ✨ Features
+
+### 🧠 Archive Methods
+
+Choose between two strategies:
+- `move`: Move records to a separate archive table/database
+- `flag`: Add a timestamp to the `archived_at` column and keep the record in place
+
+```php
+'method' => 'move' // or 'flag'
+```
+
+---
+
+### 📆 Per-Model Retention
+
+Override archive timing for specific models using:
+
+```php
+protected static $archiveAfterDays = 90;
+```
+
+---
+
+### 🧼 Selective Column Archiving
+
+Archive only the fields you need:
+
+```php
+protected $archiveColumns = ['id', 'amount', 'customer_id'];
+```
+
+---
+
+### 🔐 Encrypted Columns
+
+Secure sensitive fields during archival:
+
+```php
+protected $archiveEncryptedColumns = ['ssn', 'email'];
+```
+
+Encryption uses Laravel’s `Crypt` service.
+
+---
+
+### 💣 Hard Delete After Archive
+
+When enabled, archived records are fully removed from the source database (not soft-deleted).
+
+```php
+'hard_delete' => true
+```
+
+Use with caution in production!
+
+---
+
+### 🔁 Queue Support
+
+Archive in the background with:
+
+```bash
+php artisan archive:models --queue
+```
+
+Supports Laravel Horizon and retry/backoff settings.
+
+---
+
+### 🧪 Dry-Run Preview
+
+Preview what would be archived or restored without making changes:
+
+```bash
+php artisan archive:models --dry-run
+php artisan restore:archived App\Models\Invoice --dry-run
+```
+
+---
+
+### 📋 Archive Logs (Optional)
+
+Enable audit logging:
+
+```php
+'logging' => ['enabled' => true]
+```
+
+Archived records are written to a central `archive_logs` table.
+
+---
+
+### 📣 Notification Hooks
+
+Notify external systems when models are archived or restored:
+
+```env
+AUTO_ARCHIVE_NOTIFY_EMAIL=admin@example.com
+AUTO_ARCHIVE_SLACK_WEBHOOK=https://hooks.slack.com/services/...
+AUTO_ARCHIVE_WEBHOOK_URL=https://yourapp.com/webhook
+```
+
+Available events:
+- `ModelArchived`
+- `ModelRestored`
+
+---
+
+### 🛡 Safety Features
+
+- **Read-only mode:** Set `AUTO_ARCHIVE_READONLY=true` to block all operations
+- **Soft delete bypass:** Use `bypass_soft_deletes => true` to include soft-deleted records
+- **Max archive age:** Automatically purge stale archive data after N days
+
+---
+
+## ⚙️ Config File (Published to `config/auto-archive.php`)
+
+```php
+'default_retention_days' => 30,
+'method'                => 'move',
+'archive_connection'    => 'archive',
+'batch_size'            => 1000,
+'pause_seconds'         => 1,
+'max_archive_age'       => 365,
+'bypass_soft_deletes'   => false,
+'readonly'              => env('AUTO_ARCHIVE_READONLY', false),
+'hard_delete'           => false,
+'logging' => [
+    'enabled' => env('AUTO_ARCHIVE_LOGGING_ENABLED', true),
+],
+'notifications' => [
+    'slack' => env('AUTO_ARCHIVE_SLACK_WEBHOOK'),
+    'email' => env('AUTO_ARCHIVE_NOTIFY_EMAIL'),
+    'webhook' => env('AUTO_ARCHIVE_WEBHOOK_URL'),
+],
+'encryption' => [
+    'enabled' => true,
+    'key'     => env('AUTO_ARCHIVE_ENCRYPTION_KEY'),
+],
+'models' => [
+    // App\Models\Invoice::class,
+],
+```
+
+---
+
+## 🧪 Artisan Command Summary
+
+```bash
+php artisan archive:models                  # Run archiving
+php artisan archive:models --dry-run        # Preview without changes
+php artisan archive:models --queue          # Queue archiving
+php artisan restore:archived App\Model 42  # Restore single record
+php artisan archive:cleanup                 # Delete expired archive records
+```
+
+---
+
+## 🧬 Example Model
 
 ```php
 use N02srt\AutoArchive\Traits\AutoArchiveable;
@@ -45,7 +190,6 @@ class Invoice extends Model
     use AutoArchiveable;
 
     protected static $archiveAfterDays = 90;
-
     protected $archiveColumns = ['id', 'amount', 'customer_id'];
     protected $archiveEncryptedColumns = ['amount'];
 
@@ -58,110 +202,7 @@ class Invoice extends Model
 
 ---
 
-## ⚙️ Config Options
-
-> Published to: `config/auto-archive.php`
-
-```php
-'default_retention_days' => 30,                  // fallback if not set on model
-'method'                => 'move',              // or 'flag'
-'archive_connection'    => 'archive',           // DB connection for archive tables
-'batch_size'            => 1000,                // rows per batch
-'pause_seconds'         => 1,                   // delay between chunks
-'max_archive_age'       => 365,                 // purge old archive rows
-'bypass_soft_deletes'   => false,               // include soft-deleted records?
-'readonly'              => false,               // prevent writes
-'hard_delete'           => false,                // hard-removes records from the source table after archiving
-'logging'               => ['enabled' => true], // log archive actions
-'encryption' => [
-    'enabled' => true,
-    'key'     => env('AUTO_ARCHIVE_ENCRYPTION_KEY'),
-],
-'notifications' => [
-    'slack' => env('AUTO_ARCHIVE_SLACK_WEBHOOK'),
-    'email' => env('AUTO_ARCHIVE_NOTIFY_EMAIL'),
-    'webhook' => env('AUTO_ARCHIVE_WEBHOOK_URL'),
-],
-'models' => [
-    // App\Models\Invoice::class,
-],
-```
-
----
-
-## 🧪 Artisan Commands
-
-```bash
-# Archive now
-php artisan archive:models
-
-# Dry run (no writes)
-php artisan archive:models --dry-run
-
-# Queue archive jobs
-php artisan archive:models --queue
-
-# Restore specific record
-php artisan restore:archived App\Models\Invoice 42
-
-# Preview restore
-php artisan restore:archived App\Models\Invoice --dry-run
-
-# Delete expired archive rows
-php artisan archive:cleanup
-```
-
----
-
-
-## 📋 Archive Log (Optional)
-
-If enabled (`logging.enabled`):
-
-| model              | record_id | archived_at         |
-|-------------------|-----------|----------------------|
-| App\Models\User   | 52        | 2025-04-24 20:02:00  |
-
-Define model in `src/Models/ArchiveLog.php` or use the one provided.
-
----
-
-## 💣 Storage Optimization
-
-To completely remove archived records from your primary database:
-
-```php
-'hard_delete' => true,
-```
-
----
-
-## 📣 Notifications
-
-Enable Slack/email/webhook alerts when archiving/restoring:
-
-```env
-AUTO_ARCHIVE_NOTIFY_EMAIL=admin@example.com
-AUTO_ARCHIVE_SLACK_WEBHOOK=https://hooks.slack.com/services/...
-AUTO_ARCHIVE_WEBHOOK_URL=https://yourapp.com/webhook
-```
----
-
-Events:
-- `ModelArchived`
-- `ModelRestored`
-
----
-
-## 🛡 Safety Features
-
-- **Read-only mode:** Set `AUTO_ARCHIVE_READONLY=true`
-- **Encryption:** Add fields to `$archiveEncryptedColumns`
-- **Soft delete bypass:** Toggle in config
-
----
-
 ## 📄 License
 
 MIT © Steve Ash  
-This package exists so your tables can breathe. 🫁
+Your database just got leaner. 🧹

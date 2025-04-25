@@ -4,20 +4,30 @@
 
 ---
 
-## ✨ Features
+## ✨ Features with Examples
 
-- ✅ Flag (`archived_at`) or fully move records to an archive table
-- 📆 Per-model retention periods with override support
-- 🧼 Selective column archiving (`$archiveColumns`)
-- 🔐 Column-level encryption on archive, with decryption on restore
-- 🧪 Dry-run mode for both archive and restore
-- 💥 Supports soft delete bypassing (`deleted_at`)
-- 🔁 Archive via Laravel Queues (w/ retries + Horizon support)
-- 📋 Archive logs table for auditing
-- 📣 Notification hooks (Slack, email, webhook via `ModelArchived`, `ModelRestored`)
-- 🔒 Read-only safety mode to protect production data
-- ⏳ Auto-cleanup of expired archive records
-- ⚙️ Smart setup CLI: injects traits, builds archive tables, publishes config
+- ✅ Flag (`archived_at`) or fully move records to an archive table  
+  _Example: Use `method => 'flag'` in config to keep records in place with a timestamp._
+- 📆 Per-model retention periods with override support  
+  _Example: `protected static $archiveAfterDays = 120;` in your model._
+- 🧼 Selective column archiving (`$archiveColumns`)  
+  _Example: `protected $archiveColumns = ['id', 'email', 'created_at'];`_
+- 🔐 Column-level encryption on archive  
+  _Example: `protected $archiveEncryptedColumns = ['email', 'ssn'];`_
+- 🧪 Dry-run mode for both archive and restore  
+  _Example: `php artisan archive:models --dry-run`_
+- 💥 Supports soft delete bypassing (`deleted_at`)  
+  _Example: Set `bypass_soft_deletes => true` in config._
+- 🔁 Archive via Laravel Queues  
+  _Example: `php artisan archive:models --queue`_
+- 📋 Archive logs table for auditing  
+  _Example: Archive actions logged in `archive_logs` table._
+- 📣 Notification hooks  
+  _Example: Events fire `ModelArchived` and `ModelRestored` you can listen to._
+- 🔒 Read-only safety mode  
+  _Example: Set `AUTO_ARCHIVE_READONLY=true` to block changes in prod._
+- ⏳ Auto-cleanup of expired archive records  
+  _Example: `php artisan archive:cleanup` purges based on `max_archive_age`_
 
 ---
 
@@ -27,7 +37,7 @@
 composer require n02srt/laravel-auto-archive
 ```
 
-Enable the PHP `zip` extension if needed (for config publishing):
+Enable PHP Zip if necessary:
 
 ```ini
 extension=zip
@@ -43,7 +53,7 @@ extension=zip
 php artisan vendor:publish --provider="N02srt\AutoArchive\AutoArchiveServiceProvider" --tag=config
 ```
 
-### 2. Set `.env` archive DB connection
+### 2. Define Archive DB in `.env`
 
 ```env
 DB_ARCHIVE_CONNECTION=archive
@@ -52,102 +62,121 @@ DB_ARCHIVE_USERNAME=archive_user
 DB_ARCHIVE_PASSWORD=secret
 ```
 
-And define it in `config/database.php`.
+### 3. Define Archive DB in `config/database.php`
+
+```php
+'archive' => [
+    'driver' => 'mysql',
+    'host' => env('DB_ARCHIVE_HOST', '127.0.0.1'),
+    'database' => env('DB_ARCHIVE_DATABASE'),
+    'username' => env('DB_ARCHIVE_USERNAME'),
+    'password' => env('DB_ARCHIVE_PASSWORD'),
+    'charset' => 'utf8mb4',
+    'collation' => 'utf8mb4_unicode_ci',
+    'prefix' => '',
+],
+```
 
 ---
 
 ## 📦 Quick Setup
 
-Automatically publishes config, injects trait, sets retention, and builds migration:
+Automatically wires up everything:
 
 ```bash
-php artisan auto-archive:setup App\Models\YourModel --days=90
+php artisan auto-archive:setup App\Models\User --days=90
 ```
+
+Creates the archive migration, updates your model, and runs migrations.
 
 ---
 
-## 🛠 Model Setup Example
+## 🧬 Example Model Setup
 
 ```php
 use N02srt\AutoArchive\Traits\AutoArchiveable;
 
-class Agreement extends Model
+class User extends Model
 {
     use AutoArchiveable;
 
-    protected static $archiveAfterDays = 120;
+    protected static $archiveAfterDays = 90;
 
-    protected $archiveColumns = ['id', 'customer_id', 'created_at'];
-    protected $archiveEncryptedColumns = ['email', 'ssn'];
+    protected $archiveColumns = ['id', 'email', 'created_at'];
+    protected $archiveEncryptedColumns = ['email'];
 
     public function scopeArchiveScope($query)
     {
-        return $query->where('status', 'completed');
+        return $query->where('is_active', false);
     }
 }
 ```
 
 ---
 
-## 🧪 Artisan Commands
+## 🧪 Artisan Command Examples
 
-| Command                             | Description                                  |
-|------------------------------------|----------------------------------------------|
-| `archive:models`                   | Archive records for configured models        |
-| `archive:models --dry-run`         | Preview what would be archived               |
-| `archive:models --queue`           | Queue archive jobs instead of inline         |
-| `restore:archived`                 | Restore from archive back to main DB         |
-| `restore:archived --dry-run`       | Preview restore without modifying anything   |
-| `archive:cleanup`                  | Delete expired archive records               |
-| `auto-archive:setup`               | Auto-configure model with trait, migration   |
-| `make:archive-migration`           | Generate archive table for a model           |
+```bash
+# Archive immediately
+php artisan archive:models
+
+# Preview what will be archived
+php artisan archive:models --dry-run
+
+# Push archive to queue
+php artisan archive:models --queue
+
+# Restore a single record
+php artisan restore:archived App\Models\User 42
+
+# Preview restore of all records
+php artisan restore:archived App\Models\User --dry-run
+
+# Cleanup expired archive records
+php artisan archive:cleanup
+```
 
 ---
 
 ## 📣 Notifications
 
-- Slack message via webhook
-- Email alert to admin
-- Webhook to 3rd-party service
-
-Triggered via events:
-
-- `ModelArchived`
-- `ModelRestored`
-
----
-
-## 🔒 Security Options
-
-- `readonly`: Prevents any data from being moved/restored
-- `bypass_soft_deletes`: Includes soft-deleted models in archive scope
-- `encryption`: Encrypt specific fields before archiving
-
----
-
-## 📋 Archive Logs (Optional)
-
-Enable archive logging for auditing:
-
 ```php
-use App\Models\ArchiveLog;
+// Listen to archive events in your app or package
+Event::listen(ModelArchived::class, function ($event) {
+    Log::info("Archived: {$event->model->getTable()} #{$event->model->id}");
+});
+```
 
-ArchiveLog::create([
-    'model' => get_class($model),
-    'record_id' => $model->getKey(),
-]);
+Or enable Slack/email/webhook notifications by setting `.env`:
+
+```env
+AUTO_ARCHIVE_NOTIFY_EMAIL=admin@example.com
+AUTO_ARCHIVE_SLACK_WEBHOOK=https://hooks.slack.com/services/...
+AUTO_ARCHIVE_WEBHOOK_URL=https://yourdomain.com/webhook
 ```
 
 ---
 
-## ✅ Example `.env` Variables
+## 🛡 Security Features
 
-```env
-AUTO_ARCHIVE_READONLY=false
-AUTO_ARCHIVE_ENCRYPTION_KEY=base64:your_32_byte_base64_key
-AUTO_ARCHIVE_NOTIFY_EMAIL=admin@example.com
-AUTO_ARCHIVE_SLACK_WEBHOOK=https://hooks.slack.com/...
-AUTO_ARCHIVE_WEBHOOK_URL=https://yourdomain.com/webhook
+| Setting                     | Purpose                                 |
+|-----------------------------|-----------------------------------------|
+| `readonly`                  | Prevents any changes (archive/restore) |
+| `bypass_soft_deletes`       | Includes soft-deleted models in query  |
+| `encryption`                | Enables Laravel encryption on fields   |
+
+---
+
+## 📋 Example Archive Log Entry
+
+If enabled:
+
+```php
+ArchiveLog::create([
+    'model' => App\Models\User::class,
+    'record_id' => 42,
+    'archived_at' => now(),
+]);
 ```
 
 ---
@@ -155,5 +184,4 @@ AUTO_ARCHIVE_WEBHOOK_URL=https://yourdomain.com/webhook
 ## 📄 License
 
 MIT © Steve Ash  
-PRs welcome, logs respected, retention honored.
-
+Made for large-scale Laravel projects that value data retention, performance, and peace of mind.

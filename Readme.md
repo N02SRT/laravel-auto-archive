@@ -206,3 +206,20 @@ class Invoice extends Model
 
 MIT © Steve Ash  
 Your database just got leaner. 🧹
+
+
+---
+
+## ⚠️ Disclaimer
+
+This package includes functionality that can permanently **delete records** from your database.  
+If you enable features like `hard_delete`, records will be irreversibly removed from the primary database.
+
+Please make sure you:
+- Understand what each configuration setting does
+- Test in staging or development environments first
+- Keep backups of your data
+
+> **I am not responsible for any data loss, misconfiguration, or unintended consequences from using this package. Use at your own risk.**
+
+---

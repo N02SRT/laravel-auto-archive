@@ -71,6 +71,7 @@ class Invoice extends Model
 'max_archive_age'       => 365,                 // purge old archive rows
 'bypass_soft_deletes'   => false,               // include soft-deleted records?
 'readonly'              => false,               // prevent writes
+'hard_delete'           => false,                // hard-removes records from the source table after archiving
 'logging'               => ['enabled' => true], // log archive actions
 'encryption' => [
     'enabled' => true,
@@ -112,6 +113,7 @@ php artisan archive:cleanup
 
 ---
 
+
 ## 📋 Archive Log (Optional)
 
 If enabled (`logging.enabled`):
@@ -124,6 +126,16 @@ Define model in `src/Models/ArchiveLog.php` or use the one provided.
 
 ---
 
+## 💣 Storage Optimization
+
+To completely remove archived records from your primary database:
+
+```php
+'hard_delete' => true,
+```
+
+---
+
 ## 📣 Notifications
 
 Enable Slack/email/webhook alerts when archiving/restoring:
@@ -133,6 +145,7 @@ AUTO_ARCHIVE_NOTIFY_EMAIL=admin@example.com
 AUTO_ARCHIVE_SLACK_WEBHOOK=https://hooks.slack.com/services/...
 AUTO_ARCHIVE_WEBHOOK_URL=https://yourapp.com/webhook
 ```
+---
 
 Events:
 - `ModelArchived`

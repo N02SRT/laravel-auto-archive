@@ -66,6 +66,17 @@ return [
     'readonly' => env('AUTO_ARCHIVE_READONLY', false),
 
     /*
+     * --------------------------------------------------------------------------
+     * Hard Delete After Archiving
+     * --------------------------------------------------------------------------
+     * If true, records will be permanently deleted after archiving.
+     * This is useful for compliance or space-saving.
+     * If false, records will be moved to archive tables.
+     * This setting is only relevant if 'method' is set to 'move'.
+     */
+    'hard_delete' => false, // If true, records will be fully removed after archiving
+
+    /*
     |--------------------------------------------------------------------------
     | Archive Logging (Audit Trail)
     |--------------------------------------------------------------------------

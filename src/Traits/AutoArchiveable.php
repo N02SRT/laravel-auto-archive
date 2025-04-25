@@ -111,7 +111,11 @@ trait AutoArchiveable
                         ->table($model->getArchiveTable())
                         ->insert($attributes);
 
-                    $model->delete();
+                    if (config('auto-archive.hard_delete')) {
+                        DB::table($model->getTable())->where('id', $model->getKey())->delete();
+                    } else {
+                        $model->delete(); // Use soft deletes or model events if applicable
+                    }
                     Event::dispatch(new ModelArchived($model));
                     $count++;
                 }

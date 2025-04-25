@@ -1,68 +1,65 @@
-# Laravel Auto Archive 🗄️🚀
+# Laravel Auto Archive
 
-`n02srt/laravel-auto-archive` is a Laravel package that automatically moves or flags old Eloquent records into a dedicated **archive** database connection—keeping your primary database lean, mean, and screaming “who’s the fastest app in the west?” 🤠💨
+`n02srt/laravel-auto-archive` is a Laravel package that automatically moves or flags old Eloquent records into a dedicated **archive** database connection. This helps reduce load on your primary database and improves performance over time.
 
 ---
 
-## 🌟 Features
+## Features
 
 - **Automatic Archiving**  
-  Move or flag old records based on age or a custom scope—set it and forget it!
+  Move or flag old records based on age or a custom scope.
 - **Archive Method**
-    - `move` (default): physically moves/deletes the dinosaurs—no `archived_at` column needed (they’re gone!).
-    - `flag`: gently tags them with an `archived_at` timestamp so they know they’re retired (requires that column).
+    - `move` (default): physically moves/deletes the recordsâ€”no `archived_at` column needed.
+    - `flag`: marks records with an `archived_at` timestamp (requires that column).
 - **Batch Processing**  
-  Chunk through records with `batch_size` and `pause_seconds` so your database doesn’t throw a tantrum.
+  Archives records in chunks (`batch_size`) with optional delays (`pause_seconds`).
 - **Dry-Run Preview**  
-  `--dry-run` says “I’m not touching anything, just tell me the gossip.”
+  Preview what would be archived without actually modifying data.
 - **Per-Model Retention**  
-  Override retention days with a static property or a dynamic `getRetentionDays()` method—because one size never fits all.
+  Use a static `$archiveAfterDays` or `getRetentionDays()` to control retention per model.
 - **Custom Archive Scopes**  
-  Define `scopeArchiveScope(Builder $query)` on your model to archive by bizarre business rules (maybe “only archive unicorns”?).
+  Define `scopeArchiveScope(Builder $query)` for more granular control.
 - **Separate Archive Connection**  
-  Your archived data lives safely on the `archive` connection—like a spa retreat for old rows.
+  Archived data is stored on a separate database connection (`archive`).
 - **Restore / Unarchive**  
-  Oops, need them back? `restore:archived` to the rescue! 🦸
+  Restore archived records using `restore:archived`.
 - **Auto-Cleanup**  
-  Purge dusty archive records beyond `max_archive_age`—Marie Kondo your data.
+  Purge old records from the archive database beyond `max_archive_age`.
 - **Event Hooks**  
-  Fires `ModelArchived` and `ModelRestored` events—hook Slack, email, smoke signals, whatever.
+  Fires `ModelArchived` and `ModelRestored` events for observability.
 - **Installer Command**  
-  `php artisan auto-archive:setup` does it all: publishes config, injects the trait, scaffolds & runs migrations—like magic (but real). ✨
+  `auto-archive:setup` publishes config, injects traits, and runs migrations.
 - **Optional Dashboard**  
-  Blade/Livewire widget to visualize archive stats—data never looked so good. 📊
+  Livewire widget for visualizing archive metrics.
 
 ---
 
-## 🛠 Requirements
+## Requirements
 
 - PHP 8.0+
-- Laravel 8.83+, 9.x or 10.x
+- Laravel 8.83+, 9.x, or 10.x
 - Doctrine DBAL 3.x
-- MySQL (or compatible) for both primary and `archive` databases
+- MySQL or compatible database
 
 ---
 
-## 🚀 Installation
+## Installation
 
-1. **Get the package**
-   ```bash
-   composer require n02srt/laravel-auto-archive
-   ```
+```bash
+composer require n02srt/laravel-auto-archive
+```
 
-2. **Enable PHP Zip extension** (because someone somewhere needs it)
-   ```ini
-   ; in your php.ini
-   extension=zip
-   ```
+Ensure the PHP `zip` extension is enabled in your `php.ini`:
+
+```ini
+extension=zip
+```
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
-### 1. Environment Variables
-
-Add these to your `.env` (defaults shown):
+### Environment Variables
 
 ```dotenv
 DB_ARCHIVE_CONNECTION=archive
@@ -73,15 +70,10 @@ DB_ARCHIVE_USERNAME=archive_user
 DB_ARCHIVE_PASSWORD=secret
 ```
 
-### 2. Database Connections
-
-In `config/database.php`, define the `archive` connection:
+### Database Configuration
 
 ```php
 'connections' => [
-
-    // … other connections …
-
     'archive' => [
         'driver'    => 'mysql',
         'host'      => env('DB_ARCHIVE_HOST'),
@@ -94,58 +86,35 @@ In `config/database.php`, define the `archive` connection:
         'prefix'    => '',
         'strict'    => true,
     ],
-
 ],
 ```
 
-### 3. Package Config
-
-Publish and inspect `config/auto-archive.php`:
+### Package Config
 
 ```bash
-php artisan vendor:publish   --provider="N02srt\AutoArchive\AutoArchiveServiceProvider"   --tag=config
+php artisan vendor:publish --provider="N02srt\AutoArchive\AutoArchiveServiceProvider" --tag=config
 ```
 
-Key settings in `config/auto-archive.php`:
+Edit `config/auto-archive.php` to adjust global settings.
 
-```php
-return [
-    'default_retention_days' => 30,
+---
 
-    // Archive method: 'move' or 'flag'
-    'method'                 => 'move',
+## Quick Setup
 
-    'archive_connection'     => env('DB_ARCHIVE_CONNECTION', 'archive'),
-
-    'batch_size'             => 1000,
-    'pause_seconds'          => 1,
-
-    'max_archive_age'        => 365,
-
-    'models'                 => [
-        // App\Models\YourModel::class,
-    ],
-];
+```bash
+php artisan auto-archive:setup App\Models\YourModel --days=120
+php artisan archive:models --dry-run
+php artisan archive:models
 ```
 
 ---
 
-## 📦 Quick Setup (Two Commands)
+## Contributing
 
-1. **One-shot setup**
-   ```bash
-   php artisan auto-archive:setup App\Models\Agreement --days=120
-   ```
-2. **Dry-Run or Archive**
-   ```bash
-   php artisan archive:models --dry-run
-   php artisan archive:models
-   ```
+Contributions are welcome. Please submit a pull request or open an issue for suggestions or improvements.
 
 ---
 
-## 🤝 Contributing
+## License
 
 MIT © Steve Ash
-
-> “I’m not saying this package will solve all your problems, but it will definitely solve your old-data headache.” 😄

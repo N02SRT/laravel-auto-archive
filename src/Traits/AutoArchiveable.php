@@ -66,6 +66,7 @@ trait AutoArchiveable
             return 0;
         }
 
+
         $batch = config('auto-archive.batch_size');
         $pause = config('auto-archive.pause_seconds');
         $conn  = config('auto-archive.archive_connection');
@@ -83,6 +84,14 @@ trait AutoArchiveable
             DB::transaction(function () use ($models, $conn, &$count) {
                 foreach ($models as $model) {
                     $attributes = $model->getAttributes();
+
+                    if (config('auto-archive.logging.enabled')) {
+                        \N02srt\AutoArchive\Models\ArchiveLog::create([
+                            'model' => get_class($model),
+                            'record_id' => $model->getKey(),
+                            'archived_at' => now(),
+                        ]);
+                    }
 
                     // Selective columns
                     if (property_exists($model, 'archiveColumns') && is_array($model->archiveColumns)) {

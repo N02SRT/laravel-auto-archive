@@ -116,6 +116,21 @@ class SetupAutoArchive extends Command
             $this->line(Artisan::output());
         }
 
+        // 8) Setup archive_logs table if logging is enabled
+        if (Config::get('auto-archive.logging.enabled')) {
+            $this->info('Scaffolding archive_logs table migration...');
+
+            Artisan::call('make:migration', [
+                'name' => 'create_archive_logs_table',
+                '--create' => 'archive_logs',
+            ]);
+            $this->line(Artisan::output());
+
+            $this->info('Running archive_logs migration...');
+            Artisan::call('migrate');
+            $this->line(Artisan::output());
+        }
+
         $this->info("\n✅  Setup complete! You can now:\n   php artisan archive:models --dry-run");
         return 0;
     }
